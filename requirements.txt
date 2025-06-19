@@ -1,0 +1,9 @@
+tensorflow>=2.9.0
+keras>=2.9.0
+opencv-python
+matplotlib
+p-utils
+deepface
+Pillow
+tk
+numpy
