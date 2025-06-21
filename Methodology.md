@@ -1,111 +1,95 @@
-# Methodology: Multi-Attribute Face Classification System
+##🧠 Methodology: Multi-Task Image Classification & Regression with Transfer Learning and Fine-Tuning
 
-This methodology outlines the workflow and technical approach used in building the Multi-Attribute Face Classifier GUI application.
+##1️⃣ Objective
+-------------
+To develop a deep learning system that predicts multiple human attributes from images using transfer learning and fine-tuning. The model can handle:
+- Age prediction (regression)
+- Nationality classification
+- Dress code classification
 
----
+##2️⃣ Data Collection & Preparation
+----------------------------------
 
-## 1. Objective
+Dataset Structure:
+- dataset/age/ (folders named by age labels: 10/, 20/, 30/ etc.)
+- dataset/nationality/ (subfolders: African/, American/, Australian/, Brazilian/, Indian/)
+- dataset/dresscode/ (subfolders: Casual/, Formal/, Semi-formal/)
 
-To develop a deep learning-based desktop application that can accurately predict multiple attributes from a facial image:
+Preprocessing:
+- Image resizing to 224x224 pixels.
+- Rescaling pixel values between 0 and 1 (normalization).
+- Data augmentation using random flipping, brightness and contrast variations.
+- Validation split: 20%
 
-* Age (10–60 years)
-* Nationality
-* Emotion
-* Dress code (for African and Indian nationalities)
+##3️⃣ Model Architectures
+------------------------
 
----
+1. Age Prediction Model (Regression)
+- Base Model: VGG16 (pretrained on ImageNet)
+- Custom Layers:
+  - Global Average Pooling
+  - Dense(128 units, ReLU)
+  - Dropout(30%)
+  - Output Layer: Dense(1 unit, Linear activation)
+- Loss Function: Mean Squared Error (MSE)
+- Metric: Mean Absolute Error (MAE)
 
-## 2. Data Collection & Preparation
+2. Nationality Classification Model (Classification)
+- Base Model: MobileNetV2 (pretrained on ImageNet)
+- Custom Layers:
+  - Global Average Pooling
+  - Batch Normalization
+  - Dense(256 units, ReLU)
+  - Dropout(50%)
+  - Output Layer: Softmax with 5 output classes
+- Loss Function: Categorical Crossentropy
+- Metric: Accuracy
 
-### 2.1 Datasets Used
+3. Dress Code Classification Model (Classification)
+- Same architecture as nationality model
+- Softmax with 3 output classes
 
-* **Age Dataset:** A curated set of facial images labeled by age group (ages 6–100, but filtered to 10–60).
-* **Nationality Dataset:** Images categorized into five nationalities — African, American, Australian, Brazilian, Indian.
-* **Emotion Dataset:** Utilized by DeepFace API for emotion recognition.
-* **Dress Code Dataset:** Images labeled as Casual, Formal, or Semi-formal.
+##4️⃣ Transfer Learning & Fine-Tuning Strategy
+--------------------------------------------
 
-### 2.2 Preprocessing Techniques
+Transfer Learning Phase:
+- Load pretrained weights from ImageNet.
+- Freeze all base model layers (trainable=False).
+- Train only the new top layers.
 
-* **Resizing** all images to 224x224 pixels.
-* **Histogram Equalization** for better contrast.
-* **Data Augmentation**:
+Fine-Tuning Phase:
+- Unfreeze selected deeper layers:
+  - Last 5 layers for VGG16 (Age model)
+  - Last 10 layers for MobileNetV2 (Nationality and Dress Code)
+- Use smaller learning rate (1e-5) for fine-tuning to adjust pretrained features.
 
-  * Random horizontal flipping
-  * Brightness and contrast variation
-* **Normalization** to scale pixel values between 0 and 1.
+##5️⃣ Training Details
+---------------------
 
----
+- Optimizer: Adam
+- Initial learning rate: 0.0001 (transfer learning), 0.00001 (fine-tuning)
+- Batch Size: 32
+- Epochs: 10 (transfer learning) + 5 (fine-tuning)
+- Callbacks used:
+  - EarlyStopping (patience=5)
+  - ReduceLROnPlateau (patience=3)
 
-## 3. Model Architecture
+##6️⃣ Evaluation Metrics
+-----------------------
 
-### 3.1 Age Estimation
+- Age Model: Mean Absolute Error (MAE)
+- Nationality Model: Classification Accuracy
+- Dress Code Model: Classification Accuracy
 
-* **Base Model:** VGG16 (pre-trained on ImageNet)
-* **Modification:**
+##7️⃣ Integration (GUI - Optional Future Scope)
+----------------------------------------------
 
-  * Global Average Pooling
-  * Dense Layer (128 neurons)
-  * Output Layer: Single neuron with linear activation
-* **Loss Function:** Mean Squared Error (MSE)
+- Models can be integrated into a desktop application using Tkinter GUI.
+- Users can upload an image and get predictions for age, nationality, and dress code in real-time.
 
-### 3.2 Nationality and Dress Code Classification
+##8️⃣ Summary
+------------
 
-* **Base Model:** MobileNetV2
-* **Modifications:**
-
-  * Global Average Pooling
-  * Batch Normalization
-  * Dense (256 neurons, ReLU)
-  * Output Layer: Softmax (5 for nationality, 3 for dress code)
-* **Loss Function:** Categorical Crossentropy
-
-### 3.3 Emotion Recognition
-
-* Handled using **DeepFace** library with built-in facial expression analysis.
-
----
-
-## 4. Training Details
-
-* **Epochs:** 10–15 (tuned per model)
-* **Batch Size:** 32
-* **Optimizer:** Adam with reduced learning rate (`0.00005`)
-* **Validation Split:** 10–20% of dataset
-* **Regularization:** Dropout & Early stopping (during training phase)
-
----
-
-## 5. Integration with GUI
-
-* Developed a desktop GUI using **Tkinter**.
-* GUI allows users to:
-
-  * Upload an image
-  * Preview it
-  * Get real-time predictions for age, nationality, emotion, and dress code
-* Ensures predictions are only made for age between 10 and 60.
-
----
-
-## 6. Evaluation Metrics
-
-* **Age:** Mean Absolute Error (MAE)
-* **Nationality/Dress Code:** Classification Accuracy
-* **Emotion:** Reported by DeepFace
-
----
-
-## 7. Constraints and Conditions
-
-* Predictions limited to images with a clear front-facing face.
-* Dress code prediction applies only to users from African or Indian backgrounds.
-
----
-
-## 8. Conclusion
-
-The methodology successfully combines modern CNN architectures with preprocessing and GUI integration, offering a practical and accurate multi-attribute classification system from static images.
-
----
-
-**Keywords:** VGG16, MobileNetV2, CNN, Emotion Detection, Deep Learning, GUI, Tkinter, DeepFace
+- All models trained fully inside the same Python code.
+- Transfer learning + fine-tuning ensures efficient learning with limited data.
+- Models saved for deployment as .h5 files.
