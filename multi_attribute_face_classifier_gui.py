@@ -2,163 +2,123 @@ import tensorflow as tf
 from keras.applications import VGG16, MobileNetV2
 from keras.models import Model
 from keras.preprocessing.image import ImageDataGenerator
-import matplotlib.pyplot as plt
-import cv2
-from deepface import DeepFace
-import tkinter as tk
-from tkinter import filedialog
+from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import numpy as np
-from PIL import Image, ImageTk
 import os
+
+# ---------------------------- Dataset Paths ---------------------------- #
+# You need to adjust these directories according to your dataset structure
+AGE_DATA_DIR = 'dataset/age'
+NATIONALITY_DATA_DIR = 'dataset/nationality'
+DRESSCODE_DATA_DIR = 'dataset/dresscode'
 
 # ---------------------------- Model Definitions ---------------------------- #
 def build_age_model():
     base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
-    for layer in base_model.layers:
-        layer.trainable = False
+    base_model.trainable = False
     x = tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
     x = tf.keras.layers.Dense(128, activation='relu')(x)
     x = tf.keras.layers.Dropout(0.3)(x)
     output = tf.keras.layers.Dense(1, activation='linear')(x)
     model = Model(inputs=base_model.input, outputs=output)
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.00005), loss='mse', metrics=['mae'])
-    return model
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001), loss='mse', metrics=['mae'])
+    return model, base_model
 
 def build_classification_model(num_classes):
     base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
-    for layer in base_model.layers:
-        layer.trainable = False
+    base_model.trainable = False
     x = tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.Dense(256, activation='relu')(x)
     x = tf.keras.layers.Dropout(0.5)(x)
     output = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
     model = Model(inputs=base_model.input, outputs=output)
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.00005), loss='categorical_crossentropy', metrics=['accuracy'])
-    return model
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001), loss='categorical_crossentropy', metrics=['accuracy'])
+    return model, base_model
 
-# ---------------------------- Load Models ---------------------------- #
-age_model = build_age_model()
-nationality_model = build_classification_model(5)
-dresscode_model = build_classification_model(3)
+# ---------------------------- Data Generators ---------------------------- #
+datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
 
-# Load trained weights
-age_model.load_weights('models/age_model.h5')
-nationality_model.load_weights('models/nationality_model.h5')
-dresscode_model.load_weights('models/dresscode_model.h5')
+# AGE DATA (Regression task)
+train_age = datagen.flow_from_directory(
+    AGE_DATA_DIR,
+    target_size=(224, 224),
+    class_mode='sparse',
+    batch_size=32,
+    subset='training'
+)
+val_age = datagen.flow_from_directory(
+    AGE_DATA_DIR,
+    target_size=(224, 224),
+    class_mode='sparse',
+    batch_size=32,
+    subset='validation'
+)
 
-# ---------------------------- Utility Functions ---------------------------- #
-def extract_class_name(predictions, classes):
-    predicted_indices = predictions.argmax(axis=1)
-    return [classes[idx] for idx in predicted_indices]
+# NATIONALITY DATA (Classification task)
+train_nat = datagen.flow_from_directory(
+    NATIONALITY_DATA_DIR,
+    target_size=(224, 224),
+    class_mode='categorical',
+    batch_size=32,
+    subset='training'
+)
+val_nat = datagen.flow_from_directory(
+    NATIONALITY_DATA_DIR,
+    target_size=(224, 224),
+    class_mode='categorical',
+    batch_size=32,
+    subset='validation'
+)
 
-def preprocess_image(img_path):
-    img = cv2.imread(img_path)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = cv2.equalizeHist(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
-    img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-    img = tf.image.resize(img, (224, 224)) / 255.0
-    img = tf.image.random_flip_left_right(img)
-    img = tf.image.random_brightness(img, max_delta=0.1)
-    img = tf.image.random_contrast(img, lower=0.9, upper=1.1)
-    return np.expand_dims(img, axis=0)
+# DRESSCODE DATA (Classification task)
+train_dress = datagen.flow_from_directory(
+    DRESSCODE_DATA_DIR,
+    target_size=(224, 224),
+    class_mode='categorical',
+    batch_size=32,
+    subset='training'
+)
+val_dress = datagen.flow_from_directory(
+    DRESSCODE_DATA_DIR,
+    target_size=(224, 224),
+    class_mode='categorical',
+    batch_size=32,
+    subset='validation'
+)
 
-def plot_training(history, title):
-    acc = history.history.get('accuracy')
-    val_acc = history.history.get('val_accuracy')
-    loss = history.history.get('loss')
-    val_loss = history.history.get('val_loss')
+# ---------------------------- Training ---------------------------- #
 
-    plt.figure(figsize=(10, 4))
-    plt.subplot(1, 2, 1)
-    plt.plot(acc, label='Training Accuracy')
-    if val_acc: plt.plot(val_acc, label='Validation Accuracy')
-    plt.title(f'{title} Accuracy')
-    plt.legend()
+# 1️⃣ AGE Model
+age_model, age_base = build_age_model()
+callbacks = [EarlyStopping(patience=5), ReduceLROnPlateau(patience=3)]
+age_model.fit(train_age, validation_data=val_age, epochs=10, callbacks=callbacks)
 
-    plt.subplot(1, 2, 2)
-    plt.plot(loss, label='Training Loss')
-    if val_loss: plt.plot(val_loss, label='Validation Loss')
-    plt.title(f'{title} Loss')
-    plt.legend()
+# Fine-tune last few layers
+for layer in age_base.layers[-5:]:
+    layer.trainable = True
+age_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5), loss='mse', metrics=['mae'])
+age_model.fit(train_age, validation_data=val_age, epochs=5, callbacks=callbacks)
+age_model.save('models/age_model.h5')
 
-    plt.tight_layout()
-    plt.show()
+# 2️⃣ NATIONALITY Model
+nationality_model, nat_base = build_classification_model(num_classes=train_nat.num_classes)
+nationality_model.fit(train_nat, validation_data=val_nat, epochs=10, callbacks=callbacks)
 
-# ---------------------------- Main Analysis Function ---------------------------- #
-def analyze_image(img_path):
-    img = preprocess_image(img_path)
+for layer in nat_base.layers[-10:]:
+    layer.trainable = True
+nationality_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5), loss='categorical_crossentropy', metrics=['accuracy'])
+nationality_model.fit(train_nat, validation_data=val_nat, epochs=5, callbacks=callbacks)
+nationality_model.save('models/nationality_model.h5')
 
-    # Predict age
-    age = int(age_model.predict(img)[0][0])
+# 3️⃣ DRESSCODE Model
+dresscode_model, dress_base = build_classification_model(num_classes=train_dress.num_classes)
+dresscode_model.fit(train_dress, validation_data=val_dress, epochs=10, callbacks=callbacks)
 
-    if not (10 <= age <= 60):
-        return f"Age out of range (10-60). Detected: {age}", []
+for layer in dress_base.layers[-10:]:
+    layer.trainable = True
+dresscode_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5), loss='categorical_crossentropy', metrics=['accuracy'])
+dresscode_model.fit(train_dress, validation_data=val_dress, epochs=5, callbacks=callbacks)
+dresscode_model.save('models/dresscode_model.h5')
 
-    results = [f"Predicted Age: {age}"]
-
-    # Predict nationality
-    nat_preds = nationality_model.predict(img)
-    nat_class = extract_class_name(nat_preds, nationality_classes)[0]
-    results.append(f"Predicted Nationality: {nat_class}")
-
-    # Predict emotion
-    face_analysis = DeepFace.analyze(img_path=img_path, actions=['emotion'])[0]
-    results.append(f"Predicted Emotion: {face_analysis['dominant_emotion']}")
-
-    # Predict dress code if required
-    if nat_class in ['African', 'Indian']:
-        dress_preds = dresscode_model.predict(img)
-        dress_class = extract_class_name(dress_preds, dresscode_classes)[0]
-        results.append(f"Predicted Dress Code: {dress_class}")
-
-    return None, results
-
-# ---------------------------- GUI Setup ---------------------------- #
-window = tk.Tk()
-window.title("Person Classification App")
-window.geometry("600x600")
-
-nationality_classes = ['African', 'American', 'Austrialian', 'Brazilian', 'Indian']
-dresscode_classes = ['Casual', 'Formal', 'Semi-formal']
-
-def clear_messages():
-    for widget in frame_display.winfo_children():
-        widget.destroy()
-
-def browse_files():
-    filename = filedialog.askopenfilename(
-        title="Select an image",
-        filetypes=[("Image Files", "*.jpg *.jpeg *.png *.bmp *.gif")]
-    )
-    if not filename:
-        return
-
-    clear_messages()
-
-    # Show preview
-    img = Image.open(filename)
-    img = img.resize((200, 200))
-    photo = ImageTk.PhotoImage(img)
-    label_img = tk.Label(frame_display, image=photo)
-    label_img.image = photo
-    label_img.pack()
-
-    # Run analysis
-    error, results = analyze_image(filename)
-    if error:
-        tk.Label(frame_display, text=error, fg="red").pack()
-    else:
-        for res in results:
-            tk.Label(frame_display, text=res).pack()
-
-frame_top = tk.Frame(window)
-frame_top.pack(pady=20)
-
-btn_upload = tk.Button(frame_top, text="Upload Image", command=browse_files)
-btn_upload.pack()
-
-frame_display = tk.Frame(window)
-frame_display.pack(pady=10)
-
-window.mainloop()
+print("All models trained and saved successfully!")
