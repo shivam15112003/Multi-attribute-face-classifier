@@ -1,13 +1,13 @@
-##🧠 Methodology: Multi-Task Image Classification & Regression with Transfer Learning and Fine-Tuning
+## 🧠 Methodology: Multi-Task Image Classification & Regression with Transfer Learning and Fine-Tuning
 
-##1️⃣ Objective
+## 1️⃣ Objective
 -------------
 To develop a deep learning system that predicts multiple human attributes from images using transfer learning and fine-tuning. The model can handle:
 - Age prediction (regression)
 - Nationality classification
 - Dress code classification
 
-##2️⃣ Data Collection & Preparation
+## 2️⃣ Data Collection & Preparation
 ----------------------------------
 
 Dataset Structure:
@@ -21,7 +21,7 @@ Preprocessing:
 - Data augmentation using random flipping, brightness and contrast variations.
 - Validation split: 20%
 
-##3️⃣ Model Architectures
+## 3️⃣ Model Architectures
 ------------------------
 
 1. Age Prediction Model (Regression)
@@ -49,7 +49,7 @@ Preprocessing:
 - Same architecture as nationality model
 - Softmax with 3 output classes
 
-##4️⃣ Transfer Learning & Fine-Tuning Strategy
+## 4️⃣ Transfer Learning & Fine-Tuning Strategy
 --------------------------------------------
 
 Transfer Learning Phase:
@@ -63,7 +63,7 @@ Fine-Tuning Phase:
   - Last 10 layers for MobileNetV2 (Nationality and Dress Code)
 - Use smaller learning rate (1e-5) for fine-tuning to adjust pretrained features.
 
-##5️⃣ Training Details
+## 5️⃣ Training Details
 ---------------------
 
 - Optimizer: Adam
@@ -74,20 +74,20 @@ Fine-Tuning Phase:
   - EarlyStopping (patience=5)
   - ReduceLROnPlateau (patience=3)
 
-##6️⃣ Evaluation Metrics
+## 6️⃣ Evaluation Metrics
 -----------------------
 
 - Age Model: Mean Absolute Error (MAE)
 - Nationality Model: Classification Accuracy
 - Dress Code Model: Classification Accuracy
 
-##7️⃣ Integration (GUI - Optional Future Scope)
+## 7️⃣ Integration (GUI - Optional Future Scope)
 ----------------------------------------------
 
 - Models can be integrated into a desktop application using Tkinter GUI.
 - Users can upload an image and get predictions for age, nationality, and dress code in real-time.
 
-##8️⃣ Summary
+## 8️⃣ Summary
 ------------
 
 - All models trained fully inside the same Python code.
